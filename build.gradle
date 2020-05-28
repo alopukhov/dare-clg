@@ -1,0 +1,60 @@
+plugins {
+    id 'java-library'
+    id "io.freefair.lombok" version "5.1.0"
+}
+
+lombok {
+    version = "1.18.12"
+}
+
+allprojects {
+    pluginManager.withPlugin('java') {
+        compileJava {
+            if (JavaVersion.current() >= JavaVersion.VERSION_1_9) {
+                options.compilerArgs << "--release" << "7"
+            }
+        }
+
+        java {
+            sourceCompatibility = JavaVersion.VERSION_1_7
+            targetCompatibility = JavaVersion.VERSION_1_7
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+task testJar(type: Jar) {
+    archiveClassifier.set('tests')
+    from sourceSets.test.output
+    from { sourceSets.test.compileClasspath.filter { it.exists() } collect { it.isDirectory() ? it : zipTree(it) } } with jar
+}
+
+
+dependencies {
+    implementation "org.slf4j:slf4j-api:1.7.30"
+
+    testImplementation "junit:junit:4.13",
+            "org.assertj:assertj-core:2.9.1"
+    testRuntime 'ch.qos.logback:logback-classic:1.2.3'
+}
+
+def generatedTestJarsDir = "$buildDir/generated/resources/test/jars"
+
+sourceSets {
+    test {
+        output.dir(generatedTestJarsDir, builtBy: 'generateTestJars')
+    }
+}
+
+task generateTestJars(type: Copy) {
+    final testJarsSubProjects = ["test-jars:jar-a", "test-jars:jar-b", "test-jars:jar-c"]
+    dependsOn testJarsSubProjects.collect { "$it:jar" }
+    from testJarsSubProjects.collect { "${project(it).buildDir}/libs" } into generatedTestJarsDir
+}
+
+test {
+    useJUnit()
+}
