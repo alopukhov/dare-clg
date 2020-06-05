@@ -1,6 +1,7 @@
 plugins {
     id 'java-library'
-    id "io.freefair.lombok" version "5.1.0"
+    id 'io.freefair.lombok' version '5.1.0'
+    id 'maven-publish'
 }
 
 lombok {
@@ -26,13 +27,6 @@ repositories {
     mavenCentral()
 }
 
-task testJar(type: Jar) {
-    archiveClassifier.set('tests')
-    from sourceSets.test.output
-    from { sourceSets.test.compileClasspath.filter { it.exists() } collect { it.isDirectory() ? it : zipTree(it) } } with jar
-}
-
-
 dependencies {
     implementation "org.slf4j:slf4j-api:1.7.30"
 
@@ -40,6 +34,20 @@ dependencies {
             "org.assertj:assertj-core:2.9.1",
             "com.github.stefanbirkner:system-rules:1.19.0"
     testRuntimeOnly 'ch.qos.logback:logback-classic:1.2.3'
+}
+
+task testJar(type: Jar) {
+    archiveClassifier.set('tests')
+    from sourceSets.test.output
+    from { sourceSets.test.compileClasspath.filter { it.exists() } collect { it.isDirectory() ? it : zipTree(it) } } with jar
+}
+
+publishing {
+    publications {
+        dareClg(MavenPublication) {
+            from components.java
+        }
+    }
 }
 
 def generatedTestJarsDir = "$buildDir/generated/resources/test/jars"
