@@ -2,4 +2,5 @@ rootProject.name = 'dare-clg'
 
 include "test-jars:jar-a",
         "test-jars:jar-b",
-        "test-jars:jar-c"
+        "test-jars:jar-c",
+        "test-jars:test-printer"

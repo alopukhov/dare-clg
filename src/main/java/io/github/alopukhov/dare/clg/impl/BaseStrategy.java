@@ -7,10 +7,12 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.Map;
 
 
 @RequiredArgsConstructor
-enum BaseStrategies implements ClassLoadingStrategy {
+enum BaseStrategy implements ClassLoadingStrategy {
     PIS(SingleHelper.P, SingleHelper.I, SingleHelper.S),
     PSI(SingleHelper.P, SingleHelper.S, SingleHelper.I),
     SIP(SingleHelper.S, SingleHelper.I, SingleHelper.P),
@@ -21,6 +23,19 @@ enum BaseStrategies implements ClassLoadingStrategy {
     private final SingleHelper first;
     private final SingleHelper second;
     private final SingleHelper third;
+
+    private static final Map<String, BaseStrategy> strategies;
+    static {
+        strategies = new HashMap<>(values().length);
+        for (BaseStrategy value : values()) {
+            strategies.put(value.name(), value);
+        }
+    }
+
+
+    public static BaseStrategy byName(String name) {
+        return strategies.get(name);
+    }
 
     @Override
     public Class<?> loadClass(String className, LoadingUtil loadingUtil) {

@@ -37,8 +37,9 @@ dependencies {
     implementation "org.slf4j:slf4j-api:1.7.30"
 
     testImplementation "junit:junit:4.13",
-            "org.assertj:assertj-core:2.9.1"
-    testRuntime 'ch.qos.logback:logback-classic:1.2.3'
+            "org.assertj:assertj-core:2.9.1",
+            "com.github.stefanbirkner:system-rules:1.19.0"
+    testRuntimeOnly 'ch.qos.logback:logback-classic:1.2.3'
 }
 
 def generatedTestJarsDir = "$buildDir/generated/resources/test/jars"
@@ -50,7 +51,7 @@ sourceSets {
 }
 
 task generateTestJars(type: Copy) {
-    final testJarsSubProjects = ["test-jars:jar-a", "test-jars:jar-b", "test-jars:jar-c"]
+    final testJarsSubProjects = ["test-jars:jar-a", "test-jars:jar-b", "test-jars:jar-c", "test-jars:test-printer"]
     dependsOn testJarsSubProjects.collect { "$it:jar" }
     from testJarsSubProjects.collect { "${project(it).buildDir}/libs" } into generatedTestJarsDir
 }

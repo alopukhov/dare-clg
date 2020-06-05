@@ -1,5 +1,6 @@
 package io.github.alopukhov.dare.clg.impl;
 
+import io.github.alopukhov.dare.clg.UnpackedTestJarsRule;
 import lombok.Cleanup;
 import org.junit.ClassRule;
 import org.junit.Test;
@@ -23,7 +24,7 @@ public class ClgClassLoaderTest {
         @Cleanup URLClassLoader b = urlClassLoader(jars.jarUrlB());
         @Cleanup URLClassLoader c = urlClassLoader(jars.jarUrlC());
         @Cleanup ClgClassLoader cl = new ClgClassLoader(new URL[0], ClassLoader.getSystemClassLoader(),
-                BaseStrategies.PIS, asList(
+                BaseStrategy.PIS, asList(
                 createImport(a, "A"),
                 createImport(b, "B"),
                 createImport(c, "C")),

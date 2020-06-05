@@ -1,4 +1,4 @@
-package io.github.alopukhov.dare.clg.impl;
+package io.github.alopukhov.dare.clg;
 
 import lombok.Getter;
 import lombok.experimental.Accessors;
@@ -6,6 +6,7 @@ import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
 import java.io.InputStream;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -13,32 +14,46 @@ import java.nio.file.Path;
 import static java.util.Objects.requireNonNull;
 
 @Accessors(fluent = true)
+@Getter
 public class UnpackedTestJarsRule extends TemporaryFolder {
-    @Getter
+
+    private Path jarA;
+    private Path jarB;
+    private Path jarC;
+    private Path testPrinterJar;
     private URL jarUrlA;
-    @Getter
     private URL jarUrlB;
-    @Getter
     private URL jarUrlC;
+    private URL testPrinterJarUrl;
 
     @Override
     protected void before() throws Throwable {
         super.before();
-        jarUrlA = copyToJarsFolder(requireNonNull(resource("jar-a.jar")));
-        jarUrlB = copyToJarsFolder(requireNonNull(resource("jar-b.jar")));
-        jarUrlC = copyToJarsFolder(requireNonNull(resource("jar-c.jar")));
+        jarA = copyToJarsFolder(requireNonNull(resource("jar-a.jar")));
+        jarUrlA = asUrl(jarA);
+        jarB = copyToJarsFolder(requireNonNull(resource("jar-b.jar")));
+        jarUrlB = asUrl(jarB);
+        jarC = copyToJarsFolder(requireNonNull(resource("jar-c.jar")));
+        jarUrlC = asUrl(jarC);
+        testPrinterJar = copyToJarsFolder(requireNonNull(resource("test-printer.jar")));
+        testPrinterJarUrl = asUrl(testPrinterJar);
     }
 
     @Override
     protected void after() {
+        jarA = null;
+        jarB = null;
+        jarC = null;
+        testPrinterJar = null;
         jarUrlA = null;
         jarUrlB = null;
         jarUrlC = null;
+        testPrinterJarUrl = null;
         super.after();
     }
 
 
-    private URL copyToJarsFolder(URL url) {
+    private Path copyToJarsFolder(URL url) {
         try {
             String urlString = url.toString();
             String name = urlString.substring(urlString.lastIndexOf('/') + 1);
@@ -47,8 +62,16 @@ public class UnpackedTestJarsRule extends TemporaryFolder {
             try (InputStream in = url.openStream()) {
                 Files.copy(in, target);
             }
-            return target.toUri().toURL();
+            return target;
         } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    public URL asUrl(Path p) {
+        try {
+            return p.toUri().toURL();
+        } catch (MalformedURLException e) {
             throw new IllegalStateException(e);
         }
     }

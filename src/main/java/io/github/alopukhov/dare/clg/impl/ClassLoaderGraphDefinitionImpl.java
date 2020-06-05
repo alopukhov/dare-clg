@@ -11,12 +11,12 @@ import static java.util.Collections.unmodifiableCollection;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
-class ClassLoaderGraphDefinitionImpl implements ClassLoaderGraphDefinition {
+public class ClassLoaderGraphDefinitionImpl implements ClassLoaderGraphDefinition {
     private final Map<String, ClassLoaderNodeDefinition> nodes = new HashMap<>();
     @Getter
-    private ClassLoader parentClassLoader = ClassLoaderGraphDefinition.class.getClassLoader();
+    private ClassLoader parentClassLoader = ClassLoaderGraphDefinitionImpl.class.getClassLoader();
     @Getter
-    private ClassLoadingStrategy defaultLoadingStrategy = BaseStrategies.PIS;
+    private ClassLoadingStrategy defaultLoadingStrategy = BaseStrategy.PIS;
 
     @Override
     public ClassLoaderNodeDefinition getNode(String name) {
@@ -47,9 +47,9 @@ class ClassLoaderGraphDefinitionImpl implements ClassLoaderGraphDefinition {
     @Override
     public ClassLoaderGraphDefinition setDefaultLoadingStrategy(@NonNull String strategy) {
         try {
-            this.defaultLoadingStrategy = resolveStrategy(strategy);
+            setDefaultLoadingStrategy(resolveStrategy(strategy));
         } catch (Exception e) {
-            throw new IllegalArgumentException("Unknown strategy name '" + strategy + "'");
+            throw new IllegalArgumentException("Can't resolve strategy name '" + strategy + "'", e);
         }
         return this;
     }
@@ -70,8 +70,16 @@ class ClassLoaderGraphDefinitionImpl implements ClassLoaderGraphDefinition {
         return new GraphMaterializer(this, classLoader).materialize();
     }
 
-    private ClassLoadingStrategy resolveStrategy(String strategy) {
-        return BaseStrategies.valueOf(strategy.toUpperCase());
+    private ClassLoadingStrategy resolveStrategy(String name) throws Exception {
+        ClassLoadingStrategy strategy = BaseStrategy.byName(name.toUpperCase());
+        if (strategy == null) {
+            Class<?> clazz = ClassLoaderGraphDefinitionImpl.class.getClassLoader().loadClass(name);
+            if (!ClassLoadingStrategy.class.isAssignableFrom(clazz)) {
+                throw new IllegalArgumentException("Class " + name + " does not implement ClassLoadingStrategy interface");
+            }
+            strategy = ((ClassLoadingStrategy) clazz.getConstructor().newInstance());
+        }
+        return strategy;
     }
 
     @RequiredArgsConstructor
@@ -124,14 +132,24 @@ class ClassLoaderGraphDefinitionImpl implements ClassLoaderGraphDefinition {
         }
 
         @Override
+        public ClassLoaderNodeDefinition setParent(String name) {
+            this.parent = name == null ? null : getOrCreateNode(name);
+            return this;
+        }
+
+        @Override
         public ClassLoaderNodeDefinition setParent(ClassLoaderNodeDefinition parent) {
-            this.parent = parent == null? null : checkSameGraph(parent);
+            this.parent = parent == null ? null : checkSameGraph(parent);
             return this;
         }
 
         @Override
         public ClassLoaderNodeDefinition setLoadingStrategy(String strategy) {
-            setLoadingStrategy(strategy == null? null : resolveStrategy(strategy));
+            try {
+                setLoadingStrategy(strategy == null ? null : resolveStrategy(strategy));
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Can't resolve strategy name '" + strategy + "'", e);
+            }
             return this;
         }
 
@@ -179,7 +197,7 @@ class ClassLoaderGraphDefinitionImpl implements ClassLoaderGraphDefinition {
 
         private ClassLoaderNodeDefinitionImpl checkSameGraph(ClassLoaderNodeDefinition node) {
             if (getNode(node.getName()) != node) {
-                throw new IllegalArgumentException("Node " + node.getName() + " does not belong to this graph");
+                throw new IllegalArgumentException("Node " + node.getName() + " instance does not belong to this graph");
             }
             return (ClassLoaderNodeDefinitionImpl) node;
         }

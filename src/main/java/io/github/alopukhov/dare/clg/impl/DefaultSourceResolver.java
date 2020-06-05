@@ -22,6 +22,7 @@ import java.util.regex.Pattern;
 class DefaultSourceResolver implements SourceResolver {
     private static final List<String> SIMPLE_PROTOCOLS = Arrays.asList("http:", "https:", "file:");
     private static final String CLASSPATH_PROTOCOL = "classpath:";
+    private static final boolean IS_WINDOWS = System.getProperty("os.name").startsWith("Windows");
 
     @Override
     public UrlHolder resolveSource(String sourcePath, ClassLoader classLoader) {
@@ -39,8 +40,15 @@ class DefaultSourceResolver implements SourceResolver {
     }
 
     private static UrlHolder resolveAsFile(String sourcePath) {
-        if (!(sourcePath.charAt(0) == '/' || sourcePath.indexOf(':') < 0)) {
+        char firstChar = sourcePath.charAt(0);
+        boolean mayBeWinPathWithDrive = IS_WINDOWS &&
+                (firstChar >= 'A' && firstChar <= 'Z' || firstChar >= 'a' && firstChar <= 'z') &&
+                sourcePath.lastIndexOf(':') == 1;
+        if (!(firstChar == '/' || sourcePath.indexOf(':') < 0 || mayBeWinPathWithDrive)) {
             return null;
+        }
+        if (IS_WINDOWS) {
+            sourcePath = sourcePath.replace('\\', '/');
         }
         try {
             int dirPos = sourcePath.lastIndexOf('/');

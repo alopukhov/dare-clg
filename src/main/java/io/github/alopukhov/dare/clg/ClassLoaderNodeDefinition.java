@@ -20,6 +20,8 @@ public interface ClassLoaderNodeDefinition {
 
     ClassLoaderNodeDefinition getParent();
 
+    ClassLoaderNodeDefinition setParent(String name);
+
     ClassLoaderNodeDefinition setParent(ClassLoaderNodeDefinition parent);
 
     ClassLoadingStrategy getLoadingStrategy();

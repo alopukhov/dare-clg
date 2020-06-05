@@ -2,6 +2,7 @@ package io.github.alopukhov.dare.clg.impl;
 
 import io.github.alopukhov.dare.clg.ClassLoaderGraph;
 import io.github.alopukhov.dare.clg.ClassLoaderGraphDefinition;
+import io.github.alopukhov.dare.clg.UnpackedTestJarsRule;
 import lombok.Cleanup;
 import org.junit.ClassRule;
 import org.junit.Test;
