@@ -2,11 +2,10 @@ plugins {
     id 'java-library'
     id 'io.freefair.lombok' version '5.1.0'
     id 'maven-publish'
+    id 'signing'
 }
 
-lombok {
-    version = "1.18.12"
-}
+lombok { version = "1.18.12" }
 
 allprojects {
     pluginManager.withPlugin('java') {
@@ -36,21 +35,25 @@ dependencies {
     testRuntimeOnly 'ch.qos.logback:logback-classic:1.2.3'
 }
 
+java {
+    withJavadocJar()
+    withSourcesJar()
+}
+
+jar {
+    manifest {
+        attributes 'Main-class' : 'io.github.alopukhov.dare.clg.launcher.Launcher'
+    }
+}
+
 task testJar(type: Jar) {
+    description 'Generate jar containing test code and resources'
     archiveClassifier.set('tests')
     from sourceSets.test.output
     from { sourceSets.test.compileClasspath.filter { it.exists() } collect { it.isDirectory() ? it : zipTree(it) } } with jar
 }
 
-publishing {
-    publications {
-        dareClg(MavenPublication) {
-            from components.java
-        }
-    }
-}
-
-def generatedTestJarsDir = "$buildDir/generated/resources/test/jars"
+final generatedTestJarsDir = "$buildDir/generated/resources/test-jars"
 
 sourceSets {
     test {
@@ -66,4 +69,51 @@ task generateTestJars(type: Copy) {
 
 test {
     useJUnit()
+}
+
+
+publishing {
+    repositories {
+        maven {
+            final isReleaseVersion = !version.endsWith("SNAPSHOT")
+            final releaseRepo = "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
+            final snapshotRepo = "https://oss.sonatype.org/content/repositories/snapshots/"
+            url = isReleaseVersion ? releaseRepo : snapshotRepo
+            credentials {
+                username = findProperty('dareOssrhUsername')
+                password = findProperty('dareOssrhPassword')
+            }
+        }
+    }
+
+    publications {
+        dareClg(MavenPublication) {
+            from components.java
+            pom {
+                name = 'Dare Classloader Graph library'
+                url = 'https://github.com/alopukhov/dare-clg'
+                licenses {
+                    license {
+                        name = 'The Apache License, Version 2.0'
+                        url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                    }
+                }
+                scm {
+                    connection = 'scm:git:https://github.com/alopukhov/dare-clg.git'
+                    developerConnection = 'scm:git:https://github.com/alopukhov/dare-clg.git'
+                    url = 'https://github.com/alopukhov/dare-clg'
+                }
+                developers {
+                    developer {
+                        id = 'alopukhov'
+                        name = 'Andrei Lopukhov'
+                    }
+                }
+            }
+        }
+    }
+}
+
+signing {
+    sign publishing.publications.dareClg
 }
