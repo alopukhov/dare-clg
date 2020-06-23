@@ -40,12 +40,6 @@ java {
     withSourcesJar()
 }
 
-jar {
-    manifest {
-        attributes 'Main-class' : 'io.github.alopukhov.dare.clg.launcher.Launcher'
-    }
-}
-
 task testJar(type: Jar) {
     description 'Generate jar containing test code and resources'
     archiveClassifier.set('tests')
