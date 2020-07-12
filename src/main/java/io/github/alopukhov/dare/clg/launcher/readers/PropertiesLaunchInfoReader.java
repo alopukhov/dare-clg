@@ -9,10 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -22,11 +19,10 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singleton;
 
-/**
- * TODO: add property order guarantee
- */
 @Slf4j
 public class PropertiesLaunchInfoReader implements LaunchInfoReader {
+    private static final Pattern ARRAY_SPLIT_REGEXP = Pattern.compile("\\s*,\\s*");
+
     @Override
     public Collection<String> supportedFileExtensions() {
         return singleton(".properties");
@@ -50,21 +46,11 @@ public class PropertiesLaunchInfoReader implements LaunchInfoReader {
         }
 
         public void handle(Properties properties) throws ConfigurationException {
-            drainStaticProperties(properties);
-            handleDynamicProperties(properties);
-        }
-
-        private void drainStaticProperties(Properties properties) throws ConfigurationException {
-            for (StaticProperty prop : StaticProperty.values()) {
-                prop.drain(properties, info);
-            }
-        }
-
-        private void handleDynamicProperties(Properties properties) throws ConfigurationException {
-            for (Map.Entry<Object, Object> prop : properties.entrySet()) {
-                String key = (String) prop.getKey();
-                String value = (String) prop.getValue();
-                DynamicProperty.handleOrThrow(key, value, info);
+            StaticProperty.consumeAll(properties, info);
+            DynamicProperty.consumeAll(properties, info);
+            if (!properties.isEmpty()) {
+                log.error("Configuration contains unknown properties: {}", properties.keySet());
+                throw new ConfigurationException("Unknown properties in configuration file");
             }
         }
     }
@@ -76,7 +62,7 @@ public class PropertiesLaunchInfoReader implements LaunchInfoReader {
             protected void doHandle(Matcher keyMatcher, String value, LaunchInfo target) {
                 String targetNode = keyMatcher.group(1);
                 String fromNode = keyMatcher.group(2);
-                for (String classes : value.split(",")) {
+                for (String classes : ARRAY_SPLIT_REGEXP.split(value)) {
                     log.debug("Importing classes to node [{}] from [{}]: [{}]", targetNode, fromNode, classes);
                     target.getGraphDefinition().getOrCreateNode(targetNode).addImportClasses(fromNode, classes);
                 }
@@ -87,9 +73,9 @@ public class PropertiesLaunchInfoReader implements LaunchInfoReader {
             protected void doHandle(Matcher keyMatcher, String value, LaunchInfo target) {
                 String targetNode = keyMatcher.group(1);
                 String fromNode = keyMatcher.group(2);
-                for (String resources : value.split(",")) {
+                for (String resources : ARRAY_SPLIT_REGEXP.split(value)) {
                     log.debug("Importing resources to node [{}] from [{}]: [{}]", targetNode, fromNode, resources);
-                    target.getGraphDefinition().getOrCreateNode(targetNode).addImportClasses(fromNode, resources);
+                    target.getGraphDefinition().getOrCreateNode(targetNode).addImportResources(fromNode, resources);
                 }
             }
         },
@@ -113,7 +99,7 @@ public class PropertiesLaunchInfoReader implements LaunchInfoReader {
             @Override
             protected void doHandle(Matcher keyMatcher, String value, LaunchInfo target) {
                 String node = keyMatcher.group(1);
-                List<String> paths = asList(value.split(","));
+                List<String> paths = asList(ARRAY_SPLIT_REGEXP.split(value));
                 log.debug("Adding node [{}] sources: {}", node, paths);
                 target.getGraphDefinition().getOrCreateNode(node).addSource(paths);
             }
@@ -121,16 +107,30 @@ public class PropertiesLaunchInfoReader implements LaunchInfoReader {
 
         private final Pattern pattern;
 
-        public static void handleOrThrow(String key, String value, LaunchInfo target) throws ConfigurationException {
-            for (DynamicProperty property : values()) {
-                if (property.handle(key, value, target)) {
-                    return;
+        public static void consumeAll(Properties properties, LaunchInfo target) {
+            List<String> keys = new ArrayList<>(properties.keySet().size());
+            for (Object keyObject : properties.keySet()) {
+                keys.add((String)keyObject);
+            }
+            Collections.sort(keys);
+            for (String key : keys) {
+                String value = properties.getProperty(key).trim();
+                if (consumeProperty(key, value, target)) {
+                    properties.remove(key);
                 }
             }
-            throw new ConfigurationException("Unknown property [" + key + "]");
         }
 
-        private boolean handle(String key, String value, LaunchInfo target) {
+        private static boolean consumeProperty(String key, String value, LaunchInfo target) {
+            for (DynamicProperty property : values()) {
+                if (property.consume(key, value, target)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private boolean consume(String key, String value, LaunchInfo target) {
             Matcher matcher = pattern.matcher(key);
             if (matcher.matches()) {
                 doHandle(matcher, value, target);
@@ -178,14 +178,21 @@ public class PropertiesLaunchInfoReader implements LaunchInfoReader {
 
         private final String key;
 
-        public void drain(Properties properties, LaunchInfo target) throws ConfigurationException {
+        public static void consumeAll(Properties properties, LaunchInfo target) throws ConfigurationException {
+            for (StaticProperty staticProperty : StaticProperty.values()) {
+                staticProperty.consume(properties, target);
+            }
+        }
+
+        public void consume(Properties properties, LaunchInfo target) throws ConfigurationException {
             String value = properties.getProperty(key);
             if (value == null) {
                 return;
             }
-            properties.remove(key);
+            value = value.trim();
             try {
                 set(target, value);
+                properties.remove(key);
             } catch (Exception e) {
                 log.error("Can't set property [{}={}]", key, value, e);
                 throw new ConfigurationException(e);
